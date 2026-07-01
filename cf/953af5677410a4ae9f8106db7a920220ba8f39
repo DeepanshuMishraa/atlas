@@ -1,0 +1,24 @@
+internal/atlas/providers.go
+  s_8b5438e9aa0e95::t_150bb154ed5d28 130-135
+internal/atlas/types.go
+  s_8b5438e9aa0e95::t_bed1a07102bf66 31-38
+cli/components/chat.go
+  s_8b5438e9aa0e95::t_446bfcb543c271 27-29,37-42,93-100,103-104,109-110,132-136
+  s_8b5438e9aa0e95::t_8972e6e3ed979e 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "cf953af5677410a4ae9f8106db7a920220ba8f39",
+  "prompts": {},
+  "sessions": {
+    "s_8b5438e9aa0e95": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f1de9-f1a7-7a96-9ceb-240b6084c4ad",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
