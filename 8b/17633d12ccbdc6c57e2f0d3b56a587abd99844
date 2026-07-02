@@ -1,0 +1,25 @@
+cli/components/chat.go
+  s_8b5438e9aa0e95::t_43d100c0a11e09 135-138
+  s_8b5438e9aa0e95::t_0725f7017181ee 69,72-75,114,116-126,145,183,191,201
+  s_8b5438e9aa0e95::t_7e9b436aa91c8f 6,30,45-47,49-51,65-67,70,85-88,181-182,186-188,202-204,206-207
+  s_8b5438e9aa0e95::t_e5d8839f9d2f63 68,205
+  s_8b5438e9aa0e95::t_00d6e4c8fab021 48,148,150,163,167-168,170-174,184-185,189-190,192-199
+  s_8b5438e9aa0e95::t_8c0939dc23c321 115
+  s_8b5438e9aa0e95::t_a1727c6e8eb91e 134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "8b17633d12ccbdc6c57e2f0d3b56a587abd99844",
+  "prompts": {},
+  "sessions": {
+    "s_8b5438e9aa0e95": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f1de9-f1a7-7a96-9ceb-240b6084c4ad",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
