@@ -1,13 +1,14 @@
 {
   "name": "atlas",
-  "module": "src/index.tsx",
+  "module": "src/root.tsx",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.tsx"
+    "dev": "bun run --watch src/root.tsx"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.2.17"
   },
   "peerDependencies": {
     "typescript": "^5"
