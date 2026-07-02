@@ -1,0 +1,29 @@
+internal/atlas/types.go
+  s_8b5438e9aa0e95::t_fbf6c0899dd046 1
+cmd/atlas/main.go
+  s_8b5438e9aa0e95::t_541732ab1e0e4c 4,23-46,48-59,61-66
+  s_8b5438e9aa0e95::t_343c85e68ef018 13
+  s_8b5438e9aa0e95::t_22c2b0d55d18ae 9,47,60
+  s_8b5438e9aa0e95::t_b8c02dda913c47 14-16,20-22
+  s_8b5438e9aa0e95::t_08d22e01b50fb7 6,17-19
+cli/components/textarea.go
+  s_8b5438e9aa0e95::t_b0e32147e50b6c 4-5,21,23-26,28-30,38-40,43,60-62,104-107
+internal/atlas/providers.go
+  s_8b5438e9aa0e95::t_ae45433bec2155 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "cd3fe5a701b6fafc75a98e169db4eb9a62f33641",
+  "prompts": {},
+  "sessions": {
+    "s_8b5438e9aa0e95": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f1de9-f1a7-7a96-9ceb-240b6084c4ad",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
