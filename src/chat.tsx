@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { SyntaxStyle, RGBA } from "@opentui/core";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { TextInput } from "./input";
 
@@ -7,48 +8,168 @@ interface Message {
   thought: string;
   response: string;
   duration: string;
+  streaming: boolean;
 }
+
+const syntaxStyle = SyntaxStyle.fromStyles({
+  "markup.heading.1": { fg: RGBA.fromHex("#ff6ec9"), bold: true },
+  "markup.heading.2": { fg: RGBA.fromHex("#ff6ec9"), bold: true },
+  "markup.heading.3": { fg: RGBA.fromHex("#ff6ec9"), bold: true },
+  "markup.list": { fg: RGBA.fromHex("#5e73a8") },
+  "markup.raw": { fg: RGBA.fromHex("#a5d6ff") },
+  default: { fg: RGBA.fromHex("#f8f8f1") },
+});
 
 export function Chat() {
   const [screen, setScreen] = useState<"initial" | "chat">("initial");
   const [messages, setMessages] = useState<Message[]>([]);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
 
-  const getMockResponse = (query: string): Message => {
-    const clean = query.trim().toLowerCase();
-    if (clean === "hi") {
-      return {
-        query,
-        thought: 'The user just said "Hi". I should respond concisely.',
-        response: "Hi. What can I help you with?",
-        duration: "4.6s",
-      };
-    } else if (clean.includes("tech stack") || clean.includes("stack") || clean.includes("opentui")) {
-      return {
-        query,
-        thought: "The user wants to know the tech stack. I should explain Bun, React, TypeScript, and OpenTUI.",
-        response: "This project is built using Bun as the JS/TS runtime, React for declarative terminal components, TypeScript for type-safety, and OpenTUI for the underlying TUI engine.",
-        duration: "2.8s",
-      };
-    } else {
-      return {
-        query,
-        thought: `The user asked: "${query}". I should provide a helpful response.`,
-        response: `I've received your query: "${query}". How else can I assist you with this project?`,
-        duration: "1.5s",
-      };
+  const streamResponse = async (query: string) => {
+    const startTime = Date.now();
+    try {
+      const response = await fetch("http://localhost:8081/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Response body is not readable");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let rawText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              if (data.type === "text-delta" && data.delta) {
+                rawText += data.delta;
+
+                // Parse rawText into <think> block and response block
+                let thought = "Thinking...";
+                let responseText = "";
+
+                if (rawText.includes("<think>")) {
+                  const thinkStart = rawText.indexOf("<think>") + 7;
+                  const thinkEnd = rawText.indexOf("</think>");
+                  if (thinkEnd !== -1) {
+                    thought = rawText.slice(thinkStart, thinkEnd).trim();
+                    responseText = rawText.slice(thinkEnd + 8).trim();
+                  } else {
+                    thought = rawText.slice(thinkStart).trim();
+                  }
+                } else {
+                  responseText = rawText.trim();
+                }
+
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const lastIndex = updated.length - 1;
+                  if (lastIndex >= 0) {
+                    const last = updated[lastIndex]!;
+                    updated[lastIndex] = {
+                      query: last.query,
+                      thought: thought || "Thinking...",
+                      response: responseText,
+                      duration: elapsed,
+                      streaming: true,
+                    };
+                  }
+                  return updated;
+                });
+              }
+            } catch (e) {
+              // Ignore incomplete line JSON parsing errors
+            }
+          }
+        }
+      }
+
+      // Final timer calculation & end of streaming
+      const finalDuration = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+        if (lastIndex >= 0) {
+          const last = updated[lastIndex]!;
+          updated[lastIndex] = {
+            query: last.query,
+            thought: last.thought,
+            response: last.response,
+            duration: finalDuration,
+            streaming: false,
+          };
+        }
+        return updated;
+      });
+
+    } catch (e) {
+      console.error(e);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+        if (lastIndex >= 0) {
+          const last = updated[lastIndex]!;
+          updated[lastIndex] = {
+            query: last.query,
+            thought: "Failed to connect",
+            response: "Could not contact the local chat API. Is the backend server running?",
+            duration: "0.0s",
+            streaming: false,
+          };
+        }
+        return updated;
+      });
     }
   };
 
   const handleInitialSubmit = (query: string) => {
-    const responseMsg = getMockResponse(query);
-    setMessages([responseMsg]);
+    const initialMessage: Message = {
+      query,
+      thought: "Thinking...",
+      response: "",
+      duration: "0.0s",
+      streaming: true,
+    };
+    setMessages([initialMessage]);
     setScreen("chat");
+    streamResponse(query);
   };
 
   const handleChatSubmit = (query: string) => {
-    const responseMsg = getMockResponse(query);
-    setMessages((prev) => [...prev, responseMsg]);
+    const newMessage: Message = {
+      query,
+      thought: "Thinking...",
+      response: "",
+      duration: "0.0s",
+      streaming: true,
+    };
+    setMessages((prev) => [...prev, newMessage]);
+    streamResponse(query);
   };
 
   // Scroll to bottom when messages change
@@ -76,7 +197,7 @@ export function Chat() {
           {/* Title / Banner */}
           <ascii-font font="slick" text="Atlas" color="#ff6ec9" />
 
-          {/* Reusable Input Component */}
+          {/* Input component */}
           <TextInput onSubmit={handleInitialSubmit} />
         </box>
       </box>
@@ -119,9 +240,17 @@ export function Chat() {
 
               {/* Response Block - Indented to align with query text */}
               <box flexDirection="column" paddingLeft={3} gap={1}>
-                <text fg="#5e73a8">{msg.thought}</text>
+                {msg.thought && <text fg="#5e73a8">{msg.thought}</text>}
                 <box height={1} />
-                <text fg="#f8f8f1">{msg.response}</text>
+                {msg.response && (
+                  <markdown
+                    content={msg.response}
+                    syntaxStyle={syntaxStyle}
+                    conceal={true}
+                    streaming={msg.streaming}
+                    width={70}
+                  />
+                )}
                 <box height={1} />
                 <text>
                   <span fg="#ff6ec9">▣ </span>

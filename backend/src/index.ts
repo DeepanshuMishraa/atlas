@@ -14,7 +14,7 @@ const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY as string
 });
 
-app.post('/',
+app.post('/chat',
   zValidator('json', z.object({ prompt: z.string() })),
   async c => {
     const { prompt } = c.req.valid('json');

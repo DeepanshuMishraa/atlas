@@ -34,7 +34,6 @@ export function TextInput({ onSubmit, placeholder, focused = true }: TextInputPr
       paddingX={2}
       paddingY={1}
     >
-      {/* Top Row: The actual textarea */}
       <textarea
         ref={textareaRef}
         placeholder={placeholder || 'Ask anything... "What is the tech stack of this project?"'}
@@ -50,10 +49,8 @@ export function TextInput({ onSubmit, placeholder, focused = true }: TextInputPr
         keyBindings={keyBindings as any}
       />
 
-      {/* Spacing between input and footer */}
       <box height={1} />
 
-      {/* Bottom Row: Footer status/options */}
       <box flexDirection="row" gap={1}>
         <text>
           <span fg="#ff6ec9"><strong>Build</strong></span>
