@@ -13,6 +13,15 @@ Atlas runs as a TUI chat interface powered by OpenTUI. When you ask something, i
 
 Everything happens in your terminal. No browser, no Electron, no daemon.
 
+## Stack
+
+- **Vercel AI SDK** — streaming chat, tool calling, and message handling between the TUI and the LLM.
+- **Groq** — fast inference via LLaMA models.
+- **OpenTUI** — React-based terminal UI framework (scrollable messages, markdown rendering, text input).
+- **Supermemory** — persistent long-term memory across sessions (facts, preferences, command history).
+- **Serper API** — web search for external information.
+- **Hono** — lightweight backend server.
+
 ## Getting started
 
 ```sh
