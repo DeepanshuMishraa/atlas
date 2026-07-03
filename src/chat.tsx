@@ -141,6 +141,13 @@ export function Chat() {
               )}
             </box>
           ))}
+
+          {/* Loading indicator — shown while waiting for response to start */}
+          {status === 'submitted' && (
+            <box flexDirection="column" paddingLeft={3} gap={1}>
+              <text fg="#5e73a8"><em>thinking...</em></text>
+            </box>
+          )}
         </box>
       </scrollbox>
 
