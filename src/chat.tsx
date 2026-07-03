@@ -1,24 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { SyntaxStyle, RGBA } from "@opentui/core";
 import type { ScrollBoxRenderable } from "@opentui/core";
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport, isTextUIPart, isReasoningUIPart, isToolUIPart, isDynamicToolUIPart } from 'ai';
+import type { UIMessage } from 'ai';
 import { TextInput } from "./input";
-
-interface ToolCall {
-  id: string;
-  name: string;
-  input: string;
-  output?: string;
-  status: "calling" | "completed" | "failed";
-}
-
-interface Message {
-  query: string;
-  thought: string;
-  response: string;
-  duration: string;
-  streaming: boolean;
-  toolCalls?: ToolCall[];
-}
 
 const syntaxStyle = SyntaxStyle.fromStyles({
   "markup.heading.1": { fg: RGBA.fromHex("#ff6ec9"), bold: true },
@@ -35,8 +21,8 @@ const formatToolData = (dataStr: string, maxLines = 8): string => {
   try {
     const parsed = JSON.parse(dataStr);
     formatted = JSON.stringify(parsed, null, 2);
-  } catch (e) {
-    // Keep it as is if it's not JSON
+  } catch {
+    // keep raw if not JSON
   }
   const lines = formatted.split("\n");
   if (lines.length > maxLines) {
@@ -45,11 +31,50 @@ const formatToolData = (dataStr: string, maxLines = 8): string => {
   return formatted;
 };
 
+function getToolName(part: Record<string, unknown>, isDynamic: boolean): string {
+  if (isDynamic) {
+    return (part.toolName as string) ?? "unknown";
+  }
+  const type = part.type as string;
+  return type.startsWith("tool-") ? type.slice(5) : type;
+}
+
+function getToolState(part: Record<string, unknown>): string {
+  return (part.state as string) ?? "unknown";
+}
+
+function getToolInput(part: Record<string, unknown>): unknown {
+  return part.input;
+}
+
+function getToolOutput(part: Record<string, unknown>): unknown {
+  return part.output;
+}
+
+function getToolError(part: Record<string, unknown>): string | undefined {
+  return part.errorText as string | undefined;
+}
+
 export function Chat() {
-  const [screen, setScreen] = useState<"initial" | "chat">("initial");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
+  const { messages, status, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      api: 'http://localhost:8081/chat',
+      body: { directory: process.cwd() },
+    }),
+  });
+
   const scrollRef = useRef<ScrollBoxRenderable>(null);
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = (text: string) => {
+    sendMessage({ text });
+  };
 
   const toggleToolCall = (tcId: string) => {
     setExpandedToolCalls((prev) => ({
@@ -58,253 +83,9 @@ export function Chat() {
     }));
   };
 
-  const streamResponse = async (query: string) => {
-    const startTime = Date.now();
-    try {
-      const response = await fetch("http://localhost:8081/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: query,
-          directory: process.cwd()
-        }),
-      });
+  const isStreaming = status === 'submitted' || status === 'streaming';
 
-      if (!response.ok) {
-        throw new Error(`Server returned status ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("Response body is not readable");
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let rawReasoning = "";
-      let rawText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === "data: [DONE]") continue;
-
-          if (trimmed.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(trimmed.slice(6));
-
-              if (data.type === "reasoning-delta" && data.delta) {
-                rawReasoning += data.delta;
-              }
-              else if (data.type === "text-delta" && data.delta) {
-                rawText += data.delta;
-              }
-              else if (data.type === "tool-input-start") {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.length - 1;
-                  if (lastIndex >= 0) {
-                    const last = updated[lastIndex]!;
-                    const toolCalls = last.toolCalls ? [...last.toolCalls] : [];
-                    toolCalls.push({
-                      id: data.toolCallId,
-                      name: data.toolName,
-                      input: "",
-                      status: "calling",
-                    });
-                    updated[lastIndex] = { ...last, toolCalls };
-                  }
-                  return updated;
-                });
-              }
-              else if (data.type === "tool-input-delta") {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.length - 1;
-                  if (lastIndex >= 0) {
-                    const last = updated[lastIndex]!;
-                    const toolCalls = last.toolCalls ? last.toolCalls.map((tc) => {
-                      if (tc.id === data.toolCallId) {
-                        return { ...tc, input: tc.input + data.inputTextDelta };
-                      }
-                      return tc;
-                    }) : [];
-                    updated[lastIndex] = { ...last, toolCalls };
-                  }
-                  return updated;
-                });
-              }
-              else if (data.type === "tool-input-available") {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.length - 1;
-                  if (lastIndex >= 0) {
-                    const last = updated[lastIndex]!;
-                    const toolCalls = last.toolCalls ? last.toolCalls.map((tc) => {
-                      if (tc.id === data.toolCallId) {
-                        return { ...tc, input: JSON.stringify(data.input) };
-                      }
-                      return tc;
-                    }) : [];
-                    updated[lastIndex] = { ...last, toolCalls };
-                  }
-                  return updated;
-                });
-              }
-              else if (data.type === "tool-output-available") {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.length - 1;
-                  if (lastIndex >= 0) {
-                    const last = updated[lastIndex]!;
-                    const toolCalls = last.toolCalls ? last.toolCalls.map((tc) => {
-                      if (tc.id === data.toolCallId) {
-                        return {
-                          ...tc,
-                          output: JSON.stringify(data.output),
-                          status: "completed" as const,
-                        };
-                      }
-                      return tc;
-                    }) : [];
-                    updated[lastIndex] = { ...last, toolCalls };
-                  }
-                  return updated;
-                });
-              }
-
-              // Update last message with new thought/response content
-              if (data.type === "reasoning-delta" || data.type === "text-delta") {
-                let thought = "";
-                let responseText = "";
-
-                if (rawText.includes("<think>")) {
-                  const thinkStart = rawText.indexOf("<think>") + 7;
-                  const thinkEnd = rawText.indexOf("</think>");
-                  if (thinkEnd !== -1) {
-                    thought = rawText.slice(thinkStart, thinkEnd).trim();
-                    responseText = rawText.slice(thinkEnd + 8).trim();
-                  } else {
-                    thought = rawText.slice(thinkStart).trim();
-                  }
-                } else {
-                  thought = rawReasoning.trim();
-                  responseText = rawText.trim();
-                }
-
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
-
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.length - 1;
-                  if (lastIndex >= 0) {
-                    const last = updated[lastIndex]!;
-                    updated[lastIndex] = {
-                      query: last.query,
-                      thought: thought || "Thinking...",
-                      response: responseText,
-                      duration: elapsed,
-                      streaming: true,
-                      toolCalls: last.toolCalls,
-                    };
-                  }
-                  return updated;
-                });
-              }
-            } catch (e) {
-              // Ignore incomplete line JSON parsing errors
-            }
-          }
-        }
-      }
-
-      // Final timer calculation & end of streaming
-      const finalDuration = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
-      setMessages((prev) => {
-        const updated = [...prev];
-        const lastIndex = updated.length - 1;
-        if (lastIndex >= 0) {
-          const last = updated[lastIndex]!;
-          updated[lastIndex] = {
-            query: last.query,
-            thought: last.thought,
-            response: last.response,
-            duration: finalDuration,
-            streaming: false,
-            toolCalls: last.toolCalls,
-          };
-        }
-        return updated;
-      });
-
-    } catch (e) {
-      console.error(e);
-      try {
-        require("fs").writeFileSync("/tmp/tui_error.log", String(e) + "\n" + (e as Error).stack);
-      } catch (err) { }
-      setMessages((prev) => {
-        const updated = [...prev];
-        const lastIndex = updated.length - 1;
-        if (lastIndex >= 0) {
-          const last = updated[lastIndex]!;
-          updated[lastIndex] = {
-            query: last.query,
-            thought: "Failed to connect",
-            response: "Could not contact the local chat API. Is the backend server running?",
-            duration: "0.0s",
-            streaming: false,
-            toolCalls: last.toolCalls,
-          };
-        }
-        return updated;
-      });
-    }
-  };
-
-  const handleInitialSubmit = (query: string) => {
-    const initialMessage: Message = {
-      query,
-      thought: "Thinking...",
-      response: "",
-      duration: "0.0s",
-      streaming: true,
-      toolCalls: [],
-    };
-    setMessages([initialMessage]);
-    setScreen("chat");
-    streamResponse(query);
-  };
-
-  const handleChatSubmit = (query: string) => {
-    const newMessage: Message = {
-      query,
-      thought: "Thinking...",
-      response: "",
-      duration: "0.0s",
-      streaming: true,
-      toolCalls: [],
-    };
-    setMessages((prev) => [...prev, newMessage]);
-    streamResponse(query);
-  };
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  if (screen === "initial") {
+  if (messages.length === 0) {
     return (
       <box
         alignItems="center"
@@ -319,11 +100,8 @@ export function Chat() {
           alignItems="center"
           gap={2}
         >
-          {/* Title / Banner */}
           <ascii-font font="slick" text="Atlas" color="#ff6ec9" />
-
-          {/* Input component */}
-          <TextInput onSubmit={handleInitialSubmit} />
+          <TextInput onSubmit={handleSubmit} />
         </box>
       </box>
     );
@@ -338,7 +116,6 @@ export function Chat() {
       backgroundColor="#272a37"
       padding={2}
     >
-      {/* Conversations Scrollbox */}
       <scrollbox
         ref={scrollRef}
         flexGrow={1}
@@ -352,124 +129,170 @@ export function Chat() {
       >
         <box flexDirection="column" paddingRight={2}>
           {messages.map((msg, idx) => (
-            <box key={idx} flexDirection="column" marginBottom={2}>
-              {/* User Query Block */}
-              <box
-                border={["left"]}
-                borderColor="#ff6ec9"
-                paddingLeft={2}
-                marginBottom={1}
-              >
-                <text fg="#f8f8f1"><strong>{msg.query}</strong></text>
-              </box>
-
-              {/* Response Block - Indented to align with query text */}
-              <box flexDirection="column" paddingLeft={3} gap={1}>
-                {msg.thought && <text fg="#5e73a8">{msg.thought}</text>}
-
-                 {/* Tool Calls Display */}
-                 {msg.toolCalls && msg.toolCalls.map((tc, tcIdx) => {
-                  const isExpanded = !!expandedToolCalls[tc.id];
-                  const isCalling = tc.status === "calling";
-                  const isFailed = tc.status === "failed";
-                  
-                  // Pick colors based on status
-                  const borderColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#43475c";
-                  const titleColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#a5d6ff";
-                  const titleText = isCalling ? ` ⚙ RUNNING: ${tc.name} ` : isFailed ? ` ✗ FAILED: ${tc.name} ` : ` ✓ SUCCESS: ${tc.name} `;
-
-                  if (!isExpanded) {
-                    let statusIcon = "✓";
-                    let textColor = "#5e73a8"; // Greyed out/muted
-                    if (isCalling) {
-                      statusIcon = "⚙";
-                      textColor = "#ff6ec9"; // Highlight pink while executing
-                    } else if (isFailed) {
-                      statusIcon = "✗";
-                      textColor = "#FF7B72"; // Red if failed
-                    }
-                    return (
-                      <box
-                        key={tcIdx}
-                        flexDirection="row"
-                        onMouseDown={() => toggleToolCall(tc.id)}
-                        paddingLeft={1}
-                        marginY={0.5}
-                      >
-                        <text fg={textColor}>
-                          <strong>{`▸ [${statusIcon} ${tc.name}]`}</strong>
-                        </text>
-                        <text fg="#43475c"><em> - click to expand</em></text>
-                      </box>
-                    );
-                  }
-
-                  return (
-                    <box
-                      key={tcIdx}
-                      flexDirection="column"
-                      border={true}
-                      borderStyle="rounded"
-                      borderColor={borderColor}
-                      title={titleText}
-                      titleColor={titleColor}
-                      paddingX={1}
-                      marginY={1}
-                      width={70}
-                      onMouseDown={() => toggleToolCall(tc.id)}
-                    >
-                      {/* Tool Parameters */}
-                      {tc.input && (
-                        <box flexDirection="column" marginTop={1}>
-                          <text fg="#5e73a8"><strong>Parameters:</strong></text>
-                          <text fg="#f8f8f1">{formatToolData(tc.input, 6)}</text>
-                        </box>
-                      )}
-
-                      {/* Tool Result */}
-                      {tc.status === "completed" && tc.output && (
-                        <box flexDirection="column" marginTop={1} marginBottom={1}>
-                          <text fg="#5e73a8"><strong>Result:</strong></text>
-                          <text fg="#a5d6ff">{formatToolData(tc.output, 10)}</text>
-                        </box>
-                      )}
-
-                      {isCalling && (
-                        <box marginTop={1} marginBottom={1}>
-                          <text fg="#ff6ec9"><em>executing tool command...</em></text>
-                        </box>
-                      )}
-
-                      <box marginTop={1} marginBottom={0.5} alignSelf="flex-end">
-                        <text fg="#43475c"><em>(click to collapse)</em></text>
-                      </box>
-                    </box>
-                  );
-                })}
-
-                <box height={1} />
-                {msg.response && (
-                  <markdown
-                    content={msg.response}
-                    syntaxStyle={syntaxStyle}
-                    conceal={true}
-                    streaming={msg.streaming}
-                    width={70}
-                  />
-                )}
-              </box>
+            <box key={msg.id} flexDirection="column" marginBottom={2}>
+              {msg.role === 'user' && <UserMessage msg={msg} />}
+              {msg.role === 'assistant' && (
+                <AssistantMessage
+                  msg={msg}
+                  isStreaming={isStreaming}
+                  expandedToolCalls={expandedToolCalls}
+                  toggleToolCall={toggleToolCall}
+                />
+              )}
             </box>
           ))}
         </box>
       </scrollbox>
 
-      {/* Spacing */}
       <box height={1} />
-
-      {/* Input Box Container at the bottom centered */}
       <box alignItems="center" width="100%">
-        <TextInput onSubmit={handleChatSubmit} />
+        <TextInput onSubmit={handleSubmit} />
       </box>
+    </box>
+  );
+}
+
+function UserMessage({ msg }: { msg: UIMessage; }) {
+  const userText = msg.parts
+    .filter(isTextUIPart)
+    .map((p) => p.text)
+    .join("");
+
+  return (
+    <box border={["left"]} borderColor="#ff6ec9" paddingLeft={2} marginBottom={1}>
+      <text fg="#f8f8f1"><strong>{userText}</strong></text>
+    </box>
+  );
+}
+
+function AssistantMessage({
+  msg,
+  isStreaming,
+  expandedToolCalls,
+  toggleToolCall,
+}: {
+  msg: UIMessage;
+  isStreaming: boolean;
+  expandedToolCalls: Record<string, boolean>;
+  toggleToolCall: (id: string) => void;
+}) {
+  const reasoningParts = msg.parts.filter(isReasoningUIPart);
+  const textParts = msg.parts.filter(isTextUIPart);
+
+  const thoughtText = reasoningParts.map((p) => p.text).join("\n");
+  const responseText = textParts.map((p) => p.text).join("");
+
+  // Extract all tool-like parts
+  const toolParts = msg.parts.filter(p => isToolUIPart(p) || isDynamicToolUIPart(p)) as Record<string, unknown>[];
+
+  return (
+    <box flexDirection="column" paddingLeft={3} gap={1}>
+      {thoughtText && <text fg="#5e73a8">{thoughtText}</text>}
+
+      {toolParts.map((part, tcIdx) => {
+        const isDynamic = (part.type as string) === 'dynamic-tool';
+        const toolName = getToolName(part, isDynamic);
+        const state = getToolState(part);
+        const input = getToolInput(part);
+        const output = getToolOutput(part);
+        const errorText = getToolError(part);
+
+        const partId = `${msg.id}-tool-${tcIdx}`;
+        const isExpanded = !!expandedToolCalls[partId];
+        const isCalling = state === 'input-streaming' || state === 'input-available';
+        const isFailed = state === 'output-error';
+        const isDone = state === 'output-available';
+
+        const borderColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#43475c";
+        const titleColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#a5d6ff";
+        const titleText = isCalling
+          ? ` ⚙ RUNNING: ${toolName} `
+          : isFailed
+            ? ` ✗ FAILED: ${toolName} `
+            : ` ✓ SUCCESS: ${toolName} `;
+
+        if (!isExpanded) {
+          let statusIcon = isDone ? "✓" : isCalling ? "⚙" : "✗";
+          let textColor = isDone ? "#5e73a8" : isCalling ? "#ff6ec9" : "#FF7B72";
+          return (
+            <box
+              key={partId}
+              flexDirection="row"
+              onMouseDown={() => toggleToolCall(partId)}
+              paddingLeft={1}
+              marginY={0.5}
+            >
+              <text fg={textColor}>
+                <strong>{`▸ [${statusIcon} ${toolName}]`}</strong>
+              </text>
+              <text fg="#43475c"><em> - click to expand</em></text>
+            </box>
+          );
+        }
+
+        return (
+          <box
+            key={partId}
+            flexDirection="column"
+            border={true}
+            borderStyle="rounded"
+            borderColor={borderColor}
+            title={titleText}
+            titleColor={titleColor}
+            paddingX={1}
+            marginY={1}
+            width={70}
+            onMouseDown={() => toggleToolCall(partId)}
+          >
+            {input != null && (
+              <box flexDirection="column" marginTop={1}>
+                <text fg="#5e73a8"><strong>Parameters:</strong></text>
+                <text fg="#f8f8f1">{formatToolData(
+                  typeof input === 'string' ? input : JSON.stringify(input, null, 2),
+                  6
+                )}</text>
+              </box>
+            )}
+
+            {isDone && output != null && (
+              <box flexDirection="column" marginTop={1} marginBottom={1}>
+                <text fg="#5e73a8"><strong>Result:</strong></text>
+                <text fg="#a5d6ff">{formatToolData(
+                  typeof output === 'string' ? output : JSON.stringify(output, null, 2),
+                  10
+                )}</text>
+              </box>
+            )}
+
+            {isFailed && errorText && (
+              <box flexDirection="column" marginTop={1} marginBottom={1}>
+                <text fg="#FF7B72"><strong>Error:</strong> {errorText}</text>
+              </box>
+            )}
+
+            {isCalling && (
+              <box marginTop={1} marginBottom={1}>
+                <text fg="#ff6ec9"><em>executing tool command...</em></text>
+              </box>
+            )}
+
+            <box marginTop={1} marginBottom={0.5} alignSelf="flex-end">
+              <text fg="#43475c"><em>(click to collapse)</em></text>
+            </box>
+          </box>
+        );
+      })}
+
+      {responseText && <box height={1} />}
+      {responseText && (
+        <markdown
+          content={responseText}
+          syntaxStyle={syntaxStyle}
+          conceal={true}
+          streaming={isStreaming}
+          width={70}
+        />
+      )}
     </box>
   );
 }
