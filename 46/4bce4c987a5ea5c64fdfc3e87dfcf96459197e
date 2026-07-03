@@ -1,0 +1,19 @@
+backend/patches/@supermemory+tools+2.0.0.patch
+  s_22b3c1b63a7111::t_a87eaa7530c188 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "464bce4c987a5ea5c64fdfc3e87dfcf96459197e",
+  "prompts": {},
+  "sessions": {
+    "s_22b3c1b63a7111": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f2691-6e8f-77c9-b08d-46f3b8902816",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
