@@ -1,0 +1,33 @@
+backend/src/index.ts
+  s_170cd06977c951::t_bed370ea64b254 33,35
+  s_170cd06977c951::t_9c63fee4827095 2,36-38
+  s_170cd06977c951::t_d7d26cf9282432 55
+  s_170cd06977c951::t_6150e3641d1380 22,29
+src/chat.tsx
+  s_170cd06977c951::t_0c187e3458f9c4 34,36,38,42-43,46-47,50-51,54-55
+  s_170cd06977c951::t_b433c05083df65 4-6,24-25,35,37,39-40,44,48,52,56-58,60-67,75-88,104,132-141,149,154,156-185,187-192,194-298
+  s_170cd06977c951::t_f0e0739cb8da88 193
+  s_170cd06977c951::t_72889d01b4c078 186
+  s_170cd06977c951::t_f4e1da1d09dda2 59
+  s_170cd06977c951::t_e6872db9f23166 155
+bun.lock
+  s_170cd06977c951::t_e2d5f166424eb2 8,24-33,54-55,62-65,68-69,90-91,106-107,130-131,142-143,160-163,168-169,174-175
+package.json
+  s_170cd06977c951::t_86265752249ce4 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "9726bbeedc65f8fcee16b9a4a5f885cc2c4a8f82",
+  "prompts": {},
+  "sessions": {
+    "s_170cd06977c951": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f2776-0016-7e6e-838b-9e1b1587adaa",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
