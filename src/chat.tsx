@@ -29,10 +29,34 @@ const syntaxStyle = SyntaxStyle.fromStyles({
   default: { fg: RGBA.fromHex("#f8f8f1") },
 });
 
+const formatToolData = (dataStr: string, maxLines = 8): string => {
+  if (!dataStr) return "";
+  let formatted = dataStr;
+  try {
+    const parsed = JSON.parse(dataStr);
+    formatted = JSON.stringify(parsed, null, 2);
+  } catch (e) {
+    // Keep it as is if it's not JSON
+  }
+  const lines = formatted.split("\n");
+  if (lines.length > maxLines) {
+    return lines.slice(0, maxLines).join("\n") + "\n... (truncated)";
+  }
+  return formatted;
+};
+
 export function Chat() {
   const [screen, setScreen] = useState<"initial" | "chat">("initial");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
   const scrollRef = useRef<ScrollBoxRenderable>(null);
+
+  const toggleToolCall = (tcId: string) => {
+    setExpandedToolCalls((prev) => ({
+      ...prev,
+      [tcId]: !prev[tcId],
+    }));
+  };
 
   const streamResponse = async (query: string) => {
     const startTime = Date.now();
@@ -226,7 +250,7 @@ export function Chat() {
       console.error(e);
       try {
         require("fs").writeFileSync("/tmp/tui_error.log", String(e) + "\n" + (e as Error).stack);
-      } catch (err) {}
+      } catch (err) { }
       setMessages((prev) => {
         const updated = [...prev];
         const lastIndex = updated.length - 1;
@@ -342,29 +366,86 @@ export function Chat() {
               {/* Response Block - Indented to align with query text */}
               <box flexDirection="column" paddingLeft={3} gap={1}>
                 {msg.thought && <text fg="#5e73a8">{msg.thought}</text>}
-                
-                {/* Tool Calls Display */}
-                {msg.toolCalls && msg.toolCalls.map((tc, tcIdx) => (
-                  <box
-                    key={tcIdx}
-                    flexDirection="column"
-                    border={["left"]}
-                    borderColor="#ff6ec9"
-                    paddingLeft={2}
-                    marginY={1}
-                  >
-                    <text fg="#a5d6ff">
-                      <strong>🛠️ Tool Call: {tc.name}</strong>
-                    </text>
-                    <text fg="#5e73a8">Input: <span fg="#f8f8f1">{tc.input}</span></text>
-                    {tc.status === "completed" && (
-                      <text fg="#5e73a8">Result: <span fg="#a5d6ff">{tc.output}</span></text>
-                    )}
-                    {tc.status === "calling" && (
-                      <text fg="#ff6ec9"><em>Executing...</em></text>
-                    )}
-                  </box>
-                ))}
+
+                 {/* Tool Calls Display */}
+                 {msg.toolCalls && msg.toolCalls.map((tc, tcIdx) => {
+                  const isExpanded = !!expandedToolCalls[tc.id];
+                  const isCalling = tc.status === "calling";
+                  const isFailed = tc.status === "failed";
+                  
+                  // Pick colors based on status
+                  const borderColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#43475c";
+                  const titleColor = isCalling ? "#ff6ec9" : isFailed ? "#FF7B72" : "#a5d6ff";
+                  const titleText = isCalling ? ` ⚙ RUNNING: ${tc.name} ` : isFailed ? ` ✗ FAILED: ${tc.name} ` : ` ✓ SUCCESS: ${tc.name} `;
+
+                  if (!isExpanded) {
+                    let statusIcon = "✓";
+                    let textColor = "#5e73a8"; // Greyed out/muted
+                    if (isCalling) {
+                      statusIcon = "⚙";
+                      textColor = "#ff6ec9"; // Highlight pink while executing
+                    } else if (isFailed) {
+                      statusIcon = "✗";
+                      textColor = "#FF7B72"; // Red if failed
+                    }
+                    return (
+                      <box
+                        key={tcIdx}
+                        flexDirection="row"
+                        onMouseDown={() => toggleToolCall(tc.id)}
+                        paddingLeft={1}
+                        marginY={0.5}
+                      >
+                        <text fg={textColor}>
+                          <strong>{`▸ [${statusIcon} ${tc.name}]`}</strong>
+                        </text>
+                        <text fg="#43475c"><em> - click to expand</em></text>
+                      </box>
+                    );
+                  }
+
+                  return (
+                    <box
+                      key={tcIdx}
+                      flexDirection="column"
+                      border={true}
+                      borderStyle="rounded"
+                      borderColor={borderColor}
+                      title={titleText}
+                      titleColor={titleColor}
+                      paddingX={1}
+                      marginY={1}
+                      width={70}
+                      onMouseDown={() => toggleToolCall(tc.id)}
+                    >
+                      {/* Tool Parameters */}
+                      {tc.input && (
+                        <box flexDirection="column" marginTop={1}>
+                          <text fg="#5e73a8"><strong>Parameters:</strong></text>
+                          <text fg="#f8f8f1">{formatToolData(tc.input, 6)}</text>
+                        </box>
+                      )}
+
+                      {/* Tool Result */}
+                      {tc.status === "completed" && tc.output && (
+                        <box flexDirection="column" marginTop={1} marginBottom={1}>
+                          <text fg="#5e73a8"><strong>Result:</strong></text>
+                          <text fg="#a5d6ff">{formatToolData(tc.output, 10)}</text>
+                        </box>
+                      )}
+
+                      {isCalling && (
+                        <box marginTop={1} marginBottom={1}>
+                          <text fg="#ff6ec9"><em>executing tool command...</em></text>
+                        </box>
+                      )}
+
+                      <box marginTop={1} marginBottom={0.5} alignSelf="flex-end">
+                        <text fg="#43475c"><em>(click to collapse)</em></text>
+                      </box>
+                    </box>
+                  );
+                })}
 
                 <box height={1} />
                 {msg.response && (
@@ -376,12 +457,6 @@ export function Chat() {
                     width={70}
                   />
                 )}
-                <box height={1} />
-                <text>
-                  <span fg="#ff6ec9">▣ </span>
-                  <span fg="#f8f8f1">Build </span>
-                  <span fg="#5e73a8">· DeepSeek V4 Flash Free · {msg.duration}</span>
-                </text>
               </box>
             </box>
           ))}
