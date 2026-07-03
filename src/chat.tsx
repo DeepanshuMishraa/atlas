@@ -103,13 +103,11 @@ export function Chat() {
                 });
               }
             } catch (e) {
-              // Ignore incomplete line JSON parsing errors
             }
           }
         }
       }
 
-      // Final timer calculation & end of streaming
       const finalDuration = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
       setMessages((prev) => {
         const updated = [...prev];
@@ -194,10 +192,7 @@ export function Chat() {
           alignItems="center"
           gap={2}
         >
-          {/* Title / Banner */}
           <ascii-font font="slick" text="Atlas" color="#ff6ec9" />
-
-          {/* Input component */}
           <TextInput onSubmit={handleInitialSubmit} />
         </box>
       </box>
@@ -213,7 +208,6 @@ export function Chat() {
       backgroundColor="#272a37"
       padding={2}
     >
-      {/* Conversations Scrollbox */}
       <scrollbox
         ref={scrollRef}
         flexGrow={1}
@@ -228,7 +222,6 @@ export function Chat() {
         <box flexDirection="column" paddingRight={2}>
           {messages.map((msg, idx) => (
             <box key={idx} flexDirection="column" marginBottom={2}>
-              {/* User Query Block */}
               <box
                 border={["left"]}
                 borderColor="#ff6ec9"
@@ -238,7 +231,6 @@ export function Chat() {
                 <text fg="#f8f8f1"><strong>{msg.query}</strong></text>
               </box>
 
-              {/* Response Block - Indented to align with query text */}
               <box flexDirection="column" paddingLeft={3} gap={1}>
                 {msg.thought && <text fg="#5e73a8">{msg.thought}</text>}
                 <box height={1} />
@@ -252,21 +244,14 @@ export function Chat() {
                   />
                 )}
                 <box height={1} />
-                <text>
-                  <span fg="#ff6ec9">▣ </span>
-                  <span fg="#f8f8f1">Build </span>
-                  <span fg="#5e73a8">· DeepSeek V4 Flash Free · {msg.duration}</span>
-                </text>
               </box>
             </box>
           ))}
         </box>
       </scrollbox>
 
-      {/* Spacing */}
       <box height={1} />
 
-      {/* Input Box Container at the bottom centered */}
       <box alignItems="center" width="100%">
         <TextInput onSubmit={handleChatSubmit} />
       </box>

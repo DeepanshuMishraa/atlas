@@ -43,22 +43,13 @@ export function TextInput({ onSubmit, placeholder, focused = true }: TextInputPr
         backgroundColor="transparent"
         focused={focused}
         width={76}
-        height={3}
+        height={1}
         wrapMode="word"
         onSubmit={handleSubmit}
         keyBindings={keyBindings as any}
       />
 
       <box height={1} />
-
-      <box flexDirection="row" gap={1}>
-        <text>
-          <span fg="#ff6ec9"><strong>Build</strong></span>
-          <span fg="#5e73a8"> · </span>
-          <span fg="#f8f8f1">DeepSeek V4 Flash Free </span>
-          <span fg="#5e73a8">OpenCode Zen</span>
-        </text>
-      </box>
     </box>
   );
 }
