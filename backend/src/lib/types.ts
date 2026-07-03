@@ -8,4 +8,8 @@ export const shellCommandSchema = z.object({
 
 export const ContextSchema = z.object({
   directory: z.string().describe("directory to run command in"),
+});
+
+export const webSearchSchema = z.object({
+  query: z.string().describe("query to search"),
 })
