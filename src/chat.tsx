@@ -42,7 +42,10 @@ export function Chat() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: query }),
+        body: JSON.stringify({
+          prompt: query,
+          directory: process.cwd()
+        }),
       });
 
       if (!response.ok) {
@@ -221,6 +224,9 @@ export function Chat() {
 
     } catch (e) {
       console.error(e);
+      try {
+        require("fs").writeFileSync("/tmp/tui_error.log", String(e) + "\n" + (e as Error).stack);
+      } catch (err) {}
       setMessages((prev) => {
         const updated = [...prev];
         const lastIndex = updated.length - 1;

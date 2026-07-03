@@ -8,7 +8,8 @@ import { createGroq } from '@ai-sdk/groq';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import z from 'zod';
-import { sayHello } from './lib/tools';
+import { sayHello, shellTool } from './lib/tools';
+import { experimental_sandbox } from './lib/utils';
 
 const app = new Hono();
 
@@ -17,15 +18,19 @@ const groq = createGroq({
 });
 
 app.post('/chat',
-  zValidator('json', z.object({ prompt: z.string() })),
+  zValidator('json', z.object({ prompt: z.string(), directory: z.string() })),
   async c => {
-    const { prompt } = c.req.valid('json');
-
+    const { prompt, directory } = c.req.valid('json');
     const result = streamText({
       model: groq("qwen/qwen3-32b"),
-      tools: {
-        sayGreet: sayHello
+      toolsContext: {
+        shellCommands: { directory: directory }
       },
+      tools: {
+        sayGreet: sayHello,
+        shellCommands: shellTool
+      },
+      experimental_sandbox: experimental_sandbox(directory) as any,
       stopWhen: isStepCount(3),
       prompt,
     });
@@ -35,8 +40,14 @@ app.post('/chat',
   },
 );
 
+
+app.get("/health", (c) => {
+  return c.json({
+    message: "OK"
+  }, 200);
+});
+
 export default {
   port: 8081,
   fetch: app.fetch,
 };
-
