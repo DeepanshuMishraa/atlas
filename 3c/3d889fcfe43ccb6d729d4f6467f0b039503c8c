@@ -1,0 +1,19 @@
+src/chat.tsx
+  s_170cd06977c951::t_6161d716daf914 144-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3c3d889fcfe43ccb6d729d4f6467f0b039503c8c",
+  "prompts": {},
+  "sessions": {
+    "s_170cd06977c951": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f2776-0016-7e6e-838b-9e1b1587adaa",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
