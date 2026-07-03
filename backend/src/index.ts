@@ -39,9 +39,6 @@ app.post('/chat',
     const result = streamText({
       system: SYSTEM_PROMPT,
       model: groq("meta-llama/llama-4-scout-17b-16e-instruct"),
-      toolsContext: {
-        shellCommands: { directory: directory }
-      } as any,
       tools: {
         sayGreet: sayHello,
         shellCommands: shellTool,

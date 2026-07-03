@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import z from "zod";
-import { ContextSchema, shellCommandSchema, webSearchSchema } from "./types";
+import { shellCommandSchema, webSearchSchema } from "./types";
 
 
 export const sayHello = tool({
@@ -16,24 +16,13 @@ export const sayHello = tool({
 
 
 export const shellTool = tool({
-  contextSchema: ContextSchema,
-  description: ({ context, experimental_sandbox }) =>
-    [
-      `Run shell commands for the ${context.directory} project.`,
-      experimental_sandbox != null
-        ? `Sandbox: ${experimental_sandbox.description}`
-        : undefined,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-
   inputSchema: shellCommandSchema,
-  execute: async ({ command }, { experimental_sandbox }) => {
+  execute: async ({ command, directory }, { experimental_sandbox, abortSignal }) => {
     if (!experimental_sandbox) {
       throw new Error('Experimental sandbox is not available');
     }
 
-    return experimental_sandbox.run({ command });
+    return experimental_sandbox.run({ command, workingDirectory: directory, abortSignal });
   },
 
 });
