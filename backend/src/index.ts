@@ -10,14 +10,15 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import z from 'zod';
 import { sayHello, shellTool, webSearchTool } from './lib/tools';
-import { experimental_sandbox } from './lib/utils';
+import { experimental_sandbox, readApiKeyFromDisk, writeApiKeyToDisk } from './lib/utils';
 import { addMemoryTool, searchMemoriesTool } from "@supermemory/tools/ai-sdk";
 
 const app = new Hono();
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY as string
-});
+const groqOptions: { apiKey?: string } = {};
+const initialKey = readApiKeyFromDisk();
+if (initialKey) groqOptions.apiKey = initialKey;
+const groqProvider = createGroq(groqOptions);
 
 const SYSTEM_PROMPT = `You are ATLAS a highly personalized AI assistant Created by elon tusk with long-term memory.
 You MUST follow these rules on EVERY single interaction:
@@ -34,11 +35,18 @@ app.post('/chat',
   async c => {
     const { messages, directory } = c.req.valid('json');
 
+    if (!groqOptions.apiKey && !process.env.GROQ_API_KEY) {
+      return c.json({
+        error: 'No API key set. Run: bun run src/cli.ts -- --set-api-key <your-key>',
+        code: 'API_KEY_MISSING',
+      }, 400);
+    }
+
     const modelMessages = await convertToModelMessages(messages);
 
     const result = streamText({
       system: SYSTEM_PROMPT,
-      model: groq("meta-llama/llama-4-scout-17b-16e-instruct"),
+      model: groqProvider("meta-llama/llama-4-scout-17b-16e-instruct"),
       tools: {
         sayGreet: sayHello,
         shellCommands: shellTool,
@@ -56,6 +64,15 @@ app.post('/chat',
     });
   },
 );
+
+app.post("/api-key", zValidator('json', z.object({ apiKey: z.string() })), async (c) => {
+  const { apiKey } = c.req.valid('json');
+  writeApiKeyToDisk(apiKey);
+  groqOptions.apiKey = apiKey;
+  return c.json({
+    message: "API Key Set Successfully"
+  }, 200);
+});
 
 
 app.get("/health", (c) => {

@@ -56,7 +56,7 @@ function getToolError(part: Record<string, unknown>): string | undefined {
 }
 
 export function Chat() {
-  const { messages, status, sendMessage } = useChat({
+  const { messages, status, sendMessage, error } = useChat({
     transport: new DefaultChatTransport({
       api: 'http://localhost:8081/chat',
       body: { directory: process.cwd() },
@@ -101,6 +101,21 @@ export function Chat() {
           gap={2}
         >
           <ascii-font font="slick" text="Atlas" color="#ff6ec9" />
+          {error && (
+            <box
+              border={["left"]}
+              borderColor="#FF7B72"
+              paddingLeft={2}
+              paddingRight={2}
+              paddingY={1}
+              width={80}
+              backgroundColor="#1e1e1e"
+            >
+              <text fg="#FF7B72">
+                <strong>✗ {error.message}</strong>
+              </text>
+            </box>
+          )}
           <TextInput onSubmit={handleSubmit} />
         </box>
       </box>
@@ -146,6 +161,24 @@ export function Chat() {
           {status === 'submitted' && (
             <box flexDirection="column" paddingLeft={3} gap={1}>
               <text fg="#5e73a8"><em>thinking...</em></text>
+            </box>
+          )}
+
+          {/* Error display — shown when a request fails */}
+          {error && status !== 'submitted' && (
+            <box
+              border={["left"]}
+              borderColor="#FF7B72"
+              paddingLeft={2}
+              paddingRight={2}
+              paddingY={1}
+              marginTop={1}
+              marginBottom={1}
+              backgroundColor="#1e1e1e"
+            >
+              <text fg="#FF7B72">
+                <strong>✗ {error.message}</strong>
+              </text>
             </box>
           )}
         </box>
