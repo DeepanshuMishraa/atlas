@@ -1,0 +1,30 @@
+backend/src/index.ts
+  s_779beb54be8cf0::t_3dd47ccce0898c 13,18-21,38-44,49,68-71
+  s_779beb54be8cf0::t_c3b5d2d2938fad 72-74
+  s_779beb54be8cf0::t_fb2c50d410ed3e 75-76
+backend/src/lib/utils.ts
+  s_779beb54be8cf0::t_1c41b60d875e3d 22-42
+  s_779beb54be8cf0::t_112838822b15f4 21
+src/cli.ts
+  s_779beb54be8cf0::t_68bc3d668f92ef 1-19,25-34
+  s_779beb54be8cf0::t_6e4f61d2ef8a3c 20-24
+  s_779beb54be8cf0::t_9e7b6276f58861 35
+src/chat.tsx
+  s_779beb54be8cf0::t_a791cef79303d2 59,104-118,166-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1468f8997379fab89a9cdd92b30036b27b9f765f",
+  "prompts": {},
+  "sessions": {
+    "s_779beb54be8cf0": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f2d02-4739-705c-8b06-b4ba39c426aa",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Deepanshu Mishra <d4deepanshu723@gmail.com>"
+    }
+  }
+}
