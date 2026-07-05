@@ -17,12 +17,12 @@ export const sayHello = tool({
 
 export const shellTool = tool({
   inputSchema: shellCommandSchema,
-  execute: async ({ command, directory }, { experimental_sandbox, abortSignal }) => {
+  execute: async ({ command, directory }, { experimental_sandbox }) => {
     if (!experimental_sandbox) {
       throw new Error('Experimental sandbox is not available');
     }
 
-    return experimental_sandbox.run({ command, workingDirectory: directory, abortSignal });
+    return experimental_sandbox.run({ command, workingDirectory: directory });
   },
 
 });

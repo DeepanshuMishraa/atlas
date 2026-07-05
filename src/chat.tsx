@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { SyntaxStyle, RGBA } from "@opentui/core";
 import type { ScrollBoxRenderable } from "@opentui/core";
+import { useKeyboard } from "@opentui/react";
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, isTextUIPart, isReasoningUIPart, isToolUIPart, isDynamicToolUIPart } from 'ai';
 import type { UIMessage } from 'ai';
@@ -56,7 +57,7 @@ function getToolError(part: Record<string, unknown>): string | undefined {
 }
 
 export function Chat() {
-  const { messages, status, sendMessage, error } = useChat({
+  const { messages, status, sendMessage, error, stop } = useChat({
     transport: new DefaultChatTransport({
       api: 'http://localhost:8081/chat',
       body: { directory: process.cwd() },
@@ -66,11 +67,37 @@ export function Chat() {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
 
+  const lastEscapeRef = useRef<number>(0);
+  const escapeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useKeyboard((key) => {
+    if (key.name !== "escape" || key.repeated) return;
+
+    const now = Date.now();
+    if (now - lastEscapeRef.current < 400) {
+      // Double escape
+      if (isStreaming) {
+        stop();
+      }
+      lastEscapeRef.current = 0;
+      if (escapeTimerRef.current) {
+        clearTimeout(escapeTimerRef.current);
+        escapeTimerRef.current = null;
+      }
+    } else {
+      lastEscapeRef.current = now;
+      escapeTimerRef.current = setTimeout(() => {
+        lastEscapeRef.current = 0;
+        escapeTimerRef.current = null;
+      }, 400);
+    }
+  });
 
   const handleSubmit = (text: string) => {
     sendMessage({ text });
@@ -116,7 +143,7 @@ export function Chat() {
               </text>
             </box>
           )}
-          <TextInput onSubmit={handleSubmit} />
+          <TextInput onSubmit={handleSubmit} isStreaming={isStreaming} />
         </box>
       </box>
     );
@@ -186,7 +213,7 @@ export function Chat() {
 
       <box height={1} />
       <box alignItems="center" width="100%">
-        <TextInput onSubmit={handleSubmit} />
+        <TextInput onSubmit={handleSubmit} isStreaming={isStreaming} />
       </box>
     </box>
   );

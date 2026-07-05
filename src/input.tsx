@@ -5,9 +5,10 @@ interface TextInputProps {
   onSubmit: (value: string) => void;
   placeholder?: string;
   focused?: boolean;
+  isStreaming?: boolean;
 }
 
-export function TextInput({ onSubmit, placeholder, focused = true }: TextInputProps) {
+export function TextInput({ onSubmit, placeholder, focused = true, isStreaming }: TextInputProps) {
   const textareaRef = useRef<TextareaRenderable>(null);
 
   const handleSubmit = () => {
@@ -43,13 +44,19 @@ export function TextInput({ onSubmit, placeholder, focused = true }: TextInputPr
         backgroundColor="transparent"
         focused={focused}
         width={76}
-        height={1}
+        height={4}
         wrapMode="word"
         onSubmit={handleSubmit}
         keyBindings={keyBindings as any}
       />
 
-      <box height={1} />
+      <box height={1}>
+        {isStreaming && (
+          <text fg="#ff6ec9">
+            <em>Esc Esc to stop</em>
+          </text>
+        )}
+      </box>
     </box>
   );
 }
